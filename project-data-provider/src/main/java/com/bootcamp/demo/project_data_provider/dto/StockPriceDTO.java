@@ -14,17 +14,12 @@ public class StockPriceDTO {
     @JsonAlias("pc") // previous close
     private Double prevClose;
 
-    @JsonAlias("v") // volume
-    private Long volume;
-
-    // 自動計算價差
     public Double getChange() {
         if (currentPrice != null && prevClose != null)
             return currentPrice - prevClose;
         return null;
     }
 
-    // 自動計算漲跌幅%
     public Double getChangePercent() {
         if (currentPrice != null && prevClose != null && prevClose != 0)
             return ((currentPrice - prevClose) / prevClose) * 100;

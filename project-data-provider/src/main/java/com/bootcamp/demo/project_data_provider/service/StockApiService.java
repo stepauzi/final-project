@@ -1,15 +1,17 @@
 package com.bootcamp.demo.project_data_provider.service;
 
+import java.util.List;
+import com.bootcamp.demo.project_data_provider.dto.CompanyFullDTO;
 import com.bootcamp.demo.project_data_provider.dto.CompanyInfoDTO;
 import com.bootcamp.demo.project_data_provider.dto.StockPriceDTO;
 
-import java.util.List;
-
 public interface StockApiService {
-
-    CompanyInfoDTO getCompanyInfo(String symbol);
 
     StockPriceDTO getStockPrice(String symbol);
 
-    List<CompanyInfoDTO> getTopCompanies(int limit);
+    CompanyInfoDTO getCompanyInfo(String symbol);
+
+    CompanyFullDTO getFullCompany(String symbol);
+
+    List<CompanyFullDTO> getTopCompanies(int limit);
 }
