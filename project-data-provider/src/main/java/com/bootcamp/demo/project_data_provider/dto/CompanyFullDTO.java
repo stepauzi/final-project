@@ -1,13 +1,13 @@
 package com.bootcamp.demo.project_data_provider.dto;
 
-import com.bootcamp.demo.project_data_provider.finnhub.model.dto.QuoteCompanyDTO;
+import com.bootcamp.demo.project_data_provider.finnhub.model.dto.FinnhubCompanyDTO;
+import lombok.Builder;
 import lombok.Getter;
-import lombok.Setter;
 
 // Inerternal DTO
 @Getter
-@Setter
+@Builder
 public class CompanyFullDTO {
-    private QuoteCompanyDTO companyInfo;
+    private FinnhubCompanyDTO companyInfo;
     private StockPriceDTO stockPrice;
 }

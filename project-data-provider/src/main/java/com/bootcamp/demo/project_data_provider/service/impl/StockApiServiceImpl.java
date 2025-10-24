@@ -4,17 +4,17 @@ import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
 import com.bootcamp.demo.project_data_provider.dto.CompanyFullDTO;
 import com.bootcamp.demo.project_data_provider.dto.StockPriceDTO;
-import com.bootcamp.demo.project_data_provider.finnhub.model.dto.QuoteCompanyDTO;
-import com.bootcamp.demo.project_data_provider.finnhub.model.dto.QuoteStockDTO;
+import com.bootcamp.demo.project_data_provider.finnhub.model.dto.FinnhubCompanyDTO;
+import com.bootcamp.demo.project_data_provider.finnhub.model.dto.FinnhubStockDTO;
 import com.bootcamp.demo.project_data_provider.service.StockApiService;
-
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class StockApiServiceImpl implements StockApiService {
 
     private final RestTemplate restTemplate;
@@ -22,16 +22,23 @@ public class StockApiServiceImpl implements StockApiService {
     @Value("${api-service.finnhub.api-token}")
     private String apiKey;
 
-    // ✅ 單一公司即時股價
+    // 🔹 Constants for endpoints
+    private static final String FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
+    private static final String QUOTE_ENDPOINT = "/quote";
+    private static final String PROFILE_ENDPOINT = "/stock/profile2";
+
+    // ✅ 即時股價
     @Override
     public StockPriceDTO getStockPrice(String symbol) {
-        String url = "https://finnhub.io/api/v1/quote?symbol=" + symbol + "&token=" + apiKey;
+        String url = String.format("%s%s?symbol=%s&token=%s", FINNHUB_BASE_URL, QUOTE_ENDPOINT, symbol, apiKey);
+        log.info("📡 Fetching stock price for {}", symbol);
 
-        // 用 External DTO 來接 API
-        QuoteStockDTO quote = restTemplate.getForObject(url, QuoteStockDTO.class);
-        if (quote == null) return null;
+        FinnhubStockDTO quote = restTemplate.getForObject(url, FinnhubStockDTO.class);
+        if (quote == null) {
+            log.warn("⚠️ No data returned for symbol {}", symbol);
+            return null;
+        }
 
-        // 將 External DTO 轉成 Internal DTO
         return StockPriceDTO.builder()
                 .symbol(symbol)
                 .price(quote.getCurrentPrice())
@@ -41,36 +48,30 @@ public class StockApiServiceImpl implements StockApiService {
                 .build();
     }
 
-    // ✅ 單一公司資料
+    // ✅ 公司資料
     @Override
-    public QuoteCompanyDTO getCompanyInfo(String symbol) {
-        String url = "https://finnhub.io/api/v1/stock/profile2?symbol=" + symbol + "&token=" + apiKey;
+    public FinnhubCompanyDTO getCompanyInfo(String symbol) {
+        String url = String.format("%s%s?symbol=%s&token=%s", FINNHUB_BASE_URL, PROFILE_ENDPOINT, symbol, apiKey);
+        log.info("🏢 Fetching company info for {}", symbol);
 
-        QuoteCompanyDTO company = restTemplate.getForObject(url, QuoteCompanyDTO.class);
-        if (company != null) {
-            // 設定 symbol（Finnhub 有時無返）
-            try {
-                var field = company.getClass().getDeclaredField("symbol");
-                field.setAccessible(true);
-                field.set(company, symbol);
-            } catch (Exception e) {
-                // ignore
-            }
+        FinnhubCompanyDTO company = restTemplate.getForObject(url, FinnhubCompanyDTO.class);
+        if (company == null) {
+            log.warn("⚠️ No company info found for symbol {}", symbol);
+            return null;
         }
         return company;
     }
 
-    // ✅ 單一公司全部資訊（資料 + 股價）
+    // ✅ 全部公司資訊（公司 + 即時價）
     @Override
     public CompanyFullDTO getFullCompany(String symbol) {
-        QuoteCompanyDTO info = getCompanyInfo(symbol);
+        FinnhubCompanyDTO info = getCompanyInfo(symbol);
         StockPriceDTO price = getStockPrice(symbol);
 
-        // 用 Constructor 或 Setter 組合
-        CompanyFullDTO full = new CompanyFullDTO();
-        full.setCompanyInfo(info);
-        full.setStockPrice(price);
-        return full;
+        return CompanyFullDTO.builder()
+                .companyInfo(info)
+                .stockPrice(price)
+                .build();
     }
 
     // ✅ Top N 公司（組合）
@@ -82,11 +83,14 @@ public class StockApiServiceImpl implements StockApiService {
             "JNJ","XOM","PG","UNH","HD"
         );
 
+        log.info("🚀 Fetching top {} companies", limit);
+
         List<CompanyFullDTO> topList = new ArrayList<>();
         for (String sym : symbols) {
             CompanyFullDTO full = getFullCompany(sym);
             if (full != null) topList.add(full);
         }
+
         return topList.subList(0, Math.min(limit, topList.size()));
     }
 }

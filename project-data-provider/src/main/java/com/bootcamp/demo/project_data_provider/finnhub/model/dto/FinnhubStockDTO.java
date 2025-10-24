@@ -3,23 +3,22 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 
-
-// Exteral DTO
+// External DTO
 @Getter
 @Setter
-public class QuoteStockDTO {
-  @JsonProperty("c")  // current price
+public class FinnhubStockDTO {
+  @JsonProperty("c")
   private Double currentPrice;
 
-  @JsonProperty("h")  // high price of the day
+  @JsonProperty("h")
   private Double high;
 
-  @JsonProperty("l")  // low price of the day
+  @JsonProperty("l")
   private Double low;
 
-  @JsonProperty("o")  // open price
+  @JsonProperty("o") 
   private Double open;
 
-  @JsonProperty("pc") // previous close
+  @JsonProperty("pc")
   private Double prevClose;
 }

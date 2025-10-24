@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.*;
 import com.bootcamp.demo.project_data_provider.dto.CompanyFullDTO;
 import com.bootcamp.demo.project_data_provider.dto.StockPriceDTO;
-import com.bootcamp.demo.project_data_provider.finnhub.model.dto.QuoteCompanyDTO;
+import com.bootcamp.demo.project_data_provider.finnhub.model.dto.FinnhubCompanyDTO;
 import com.bootcamp.demo.project_data_provider.service.StockApiService;
 
 import lombok.RequiredArgsConstructor;
@@ -31,7 +31,7 @@ public class StockApiController {
 
     // 🔹 單一公司基本資料
     @GetMapping("/company/{symbol}")
-    public QuoteCompanyDTO getCompanyInfo(@PathVariable String symbol) {
+    public FinnhubCompanyDTO getCompanyInfo(@PathVariable String symbol) {
         return stockApiService.getCompanyInfo(symbol);
     }
 

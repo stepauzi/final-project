@@ -5,7 +5,7 @@ import lombok.Getter;
 
 // External DTO
 @Getter 
-public class QuoteCompanyDTO {
+public class FinnhubCompanyDTO {
     private String symbol;
 
     @JsonAlias("name")
