@@ -1,7 +1,10 @@
-
 server:
-  port: 8081           
+  port: 8081
 
 spring:
   application:
     name: project-data-provider
+
+api-service:
+  finnhub:
+    api-token: 'd1n3u8hr01qlvnp5dhv0d1n3u8hr01qlvnp5dhvg'

@@ -1,22 +1,20 @@
 package com.bootcamp.demo.project_data_provider.service.impl;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
+import java.util.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import com.bootcamp.demo.project_data_provider.dto.CompanyFullDTO;
-import com.bootcamp.demo.project_data_provider.dto.CompanyInfoDTO;
-import com.bootcamp.demo.project_data_provider.dto.StockPriceDTO;
+import com.bootcamp.demo.project_data_provider.dto.*;
 import com.bootcamp.demo.project_data_provider.service.StockApiService;
 
 @Service
 public class StockApiServiceImpl implements StockApiService {
 
     private final RestTemplate restTemplate;
-    private final String apiKey = "d3rfn5pr01qopgh8bod0d3rfn5pr01qopgh8bodg"; // 🔹 直接在此輸入 API Key
+
+    @Value("${api-service.finnhub.api-token}")   // 👈 從 application.yml 注入 token
+    private String apiKey;
 
     public StockApiServiceImpl(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -46,7 +44,6 @@ public class StockApiServiceImpl implements StockApiService {
         CompanyFullDTO full = new CompanyFullDTO();
         full.setCompanyInfo(info);
         full.setStockPrice(price);
-
         return full;
     }
 
