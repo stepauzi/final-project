@@ -3,7 +3,7 @@ package com.bootcamp.demo.project_data_provider.dto;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 
-@Data
+@Data // Internal DTO
 public class StockPriceDTO {
 
     private String symbol;

@@ -4,8 +4,9 @@ import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-import com.bootcamp.demo.project_data_provider.dto.*;
+import com.bootcamp.demo.project_data_provider.dto.CompanyFullDTO;
+import com.bootcamp.demo.project_data_provider.dto.StockPriceDTO;
+import com.bootcamp.demo.project_data_provider.finnhub.model.dto.QuoteCompanyDTO;
 import com.bootcamp.demo.project_data_provider.service.StockApiService;
 
 @Service
@@ -13,7 +14,7 @@ public class StockApiServiceImpl implements StockApiService {
 
     private final RestTemplate restTemplate;
 
-    @Value("${api-service.finnhub.api-token}")   // 👈 從 application.yml 注入 token
+    @Value("${api-service.finnhub.api-token}")
     private String apiKey;
 
     public StockApiServiceImpl(RestTemplate restTemplate) {
@@ -29,16 +30,16 @@ public class StockApiServiceImpl implements StockApiService {
     }
 
     @Override
-    public CompanyInfoDTO getCompanyInfo(String symbol) {
+    public QuoteCompanyDTO getCompanyInfo(String symbol) {
         String url = "https://finnhub.io/api/v1/stock/profile2?symbol=" + symbol + "&token=" + apiKey;
-        CompanyInfoDTO dto = restTemplate.getForObject(url, CompanyInfoDTO.class);
+        QuoteCompanyDTO dto = restTemplate.getForObject(url, QuoteCompanyDTO.class);
         if (dto != null) dto.setSymbol(symbol);
         return dto;
     }
 
     @Override
     public CompanyFullDTO getFullCompany(String symbol) {
-        CompanyInfoDTO info = getCompanyInfo(symbol);
+        QuoteCompanyDTO info = getCompanyInfo(symbol);
         StockPriceDTO price = getStockPrice(symbol);
 
         CompanyFullDTO full = new CompanyFullDTO();

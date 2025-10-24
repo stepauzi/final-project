@@ -1,10 +1,10 @@
-package com.bootcamp.demo.project_data_provider.dto;
+package com.bootcamp.demo.project_data_provider.finnhub.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 
-@Data
-public class CompanyInfoDTO {
+@Data // Exteral DTO
+public class QuoteCompanyDTO {
     private String symbol;
 
     @JsonAlias("name")
