@@ -1,28 +1,19 @@
 package com.bootcamp.demo.project_data_provider.dto;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
-import lombok.Data;
+import java.time.LocalDateTime;
+import lombok.Builder;
+import lombok.Getter;
 
-@Data // Internal DTO
+// Inerternal DTO
+@Getter
+@Builder
 public class StockPriceDTO {
+  private String symbol;
+  private Double price;
+  private Double dayHigh;
+  private Double dayLow;
+  private Double dayOpen;
 
-    private String symbol;
-
-    @JsonAlias("c") // current price
-    private Double currentPrice;
-
-    @JsonAlias("pc") // previous close
-    private Double prevClose;
-
-    public Double getChange() {
-        if (currentPrice != null && prevClose != null)
-            return currentPrice - prevClose;
-        return null;
-    }
-
-    public Double getChangePercent() {
-        if (currentPrice != null && prevClose != null && prevClose != 0)
-            return ((currentPrice - prevClose) / prevClose) * 100;
-        return null;
-    }
+  @Builder.Default
+  private LocalDateTime datetime = LocalDateTime.now();
 }
