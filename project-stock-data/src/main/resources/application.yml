@@ -1,0 +1,14 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: project-stock-data
+  datasource:
+    url: jdbc:postgresql://localhost:5432/stockdb
+    username: postgres
+    password: admin1234
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true

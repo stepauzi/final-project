@@ -14,4 +14,6 @@ public interface StockApiService {
     CompanyFullDTO getFullCompany(String symbol);
 
     List<CompanyFullDTO> getTopCompanies(int limit);
+
+    List<CompanyFullDTO> getAllStocks();
 }

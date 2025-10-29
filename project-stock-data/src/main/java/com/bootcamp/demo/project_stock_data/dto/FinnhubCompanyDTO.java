@@ -1,7 +1,6 @@
-package com.bootcamp.demo.project_data_provider.finnhub.model.dto;
+package com.bootcamp.demo.project_stock_data.dto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 

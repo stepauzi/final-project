@@ -11,7 +11,7 @@ import com.bootcamp.demo.project_data_provider.service.StockApiService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/stocks")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class StockApiController {
 

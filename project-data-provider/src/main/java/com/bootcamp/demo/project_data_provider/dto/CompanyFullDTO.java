@@ -8,6 +8,6 @@ import lombok.Getter;
 @Getter
 @Builder
 public class CompanyFullDTO {
-    private FinnhubCompanyDTO companyInfo;
     private StockPriceDTO stockPrice;
+    private FinnhubCompanyDTO companyInfo;
 }
