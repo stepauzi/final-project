@@ -17,12 +17,6 @@ public class StockApiController {
 
     private final StockApiService stockApiService;
 
-    // 🔹 Top N 公司 + 即時股價
-    @GetMapping("/top")
-    public List<CompanyFullDTO> getTopCompanies(@RequestParam(defaultValue = "10") int limit) {
-        return stockApiService.getTopCompanies(limit);
-    }
-
     // 🔹 單一公司即時股價
     @GetMapping("/{symbol}")
     public StockPriceDTO getStockPrice(@PathVariable String symbol) {

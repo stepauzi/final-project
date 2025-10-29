@@ -1,6 +1,7 @@
 package com.bootcamp.demo.project_data_provider.dto;
 
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -14,6 +15,7 @@ public class StockPriceDTO {
   private Double dayLow;
   private Double dayOpen;
 
+  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Hong_Kong")
   @Builder.Default
   private LocalDateTime datetime = LocalDateTime.now();
 }

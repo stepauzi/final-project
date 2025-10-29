@@ -25,27 +25,22 @@ public class StockDataServiceImpl implements StockDataService {
 
     private static final String DATA_PROVIDER_URL = "http://localhost:8081/api/full/";
 
+    // ✅ 主更新邏輯：Refresh 全部股票資料
     @Override
     public List<StockProfileEntity> refreshAllStockProfiles() {
         List<StockSymbolEntity> symbols = stockSymbolRepository.findAll();
         List<StockProfileEntity> savedProfiles = new ArrayList<>();
 
-        log.info("🚀 Refreshing stock data for {} symbols", symbols.size());
-
         for (StockSymbolEntity s : symbols) {
-            String symbol = s.getSymbol();
-
             try {
-                String url = DATA_PROVIDER_URL + symbol;
+                String url = DATA_PROVIDER_URL + s.getSymbol();
                 CompanyFullDTO dto = restTemplate.getForObject(url, CompanyFullDTO.class);
 
-                if (dto == null || dto.getCompanyInfo() == null || dto.getStockPrice() == null) {
-                    log.warn("⚠️ Skipped {}, no data returned", symbol);
+                if (dto == null || dto.getCompanyInfo() == null || dto.getStockPrice() == null)
                     continue;
-                }
 
                 StockProfileEntity entity = StockProfileEntity.builder()
-                        .symbol(symbol)
+                        .symbol(dto.getStockPrice().getSymbol())
                         .name(dto.getCompanyInfo().getName())
                         .industry(dto.getCompanyInfo().getIndustry())
                         .logo(dto.getCompanyInfo().getLogo())
@@ -60,19 +55,90 @@ public class StockDataServiceImpl implements StockDataService {
 
                 stockProfileRepository.save(entity);
                 savedProfiles.add(entity);
+                Thread.sleep(3000); // ⏳ API 限流保護
 
-                Thread.sleep(3000); // 🕒 避免 overload Finnhub API
             } catch (Exception e) {
-                log.error("❌ Failed to fetch data for {}: {}", symbol, e.getMessage());
+                log.warn("❌ Failed to refresh data for {}: {}", s.getSymbol(), e.getMessage());
             }
         }
 
         log.info("✅ Successfully refreshed {} stock profiles", savedProfiles.size());
+
+        // 🚀 自動補漏
+        List<StockProfileEntity> missing = refreshMissingStocks();
+        log.info("🧩 Auto-filled {} missing profiles", missing.size());
+
         return savedProfiles;
     }
 
+    // ✅ 查詢所有已存在資料
     @Override
     public List<StockProfileEntity> getAllProfiles() {
         return stockProfileRepository.findAll();
+    }
+
+    // ✅ 自動檢查並補漏
+    @Override
+    public List<StockProfileEntity> refreshMissingStocks() {
+        // 從 DB 取出全部 symbol
+        List<String> allSymbols = stockSymbolRepository.findAll()
+                .stream()
+                .map(StockSymbolEntity::getSymbol)
+                .toList();
+
+        // 已存在於 profiles 嘅 symbol
+        List<String> existingSymbols = stockProfileRepository.findAll()
+                .stream()
+                .map(StockProfileEntity::getSymbol)
+                .toList();
+
+        // 計出未有的 symbol
+        List<String> missingSymbols = allSymbols.stream()
+                .filter(sym -> !existingSymbols.contains(sym))
+                .toList();
+
+        if (missingSymbols.isEmpty()) {
+            log.info("🎯 No missing stocks found. All up to date!");
+            return Collections.emptyList();
+        }
+
+        log.info("🔍 Found {} missing symbols: {}", missingSymbols.size(), missingSymbols);
+
+        List<StockProfileEntity> updated = new ArrayList<>();
+
+        for (String symbol : missingSymbols) {
+            try {
+                String url = DATA_PROVIDER_URL + symbol;
+                CompanyFullDTO dto = restTemplate.getForObject(url, CompanyFullDTO.class);
+
+                if (dto == null || dto.getCompanyInfo() == null || dto.getStockPrice() == null) {
+                    log.warn("⚠️ No data for {}", symbol);
+                    continue;
+                }
+
+                StockProfileEntity entity = StockProfileEntity.builder()
+                        .symbol(dto.getStockPrice().getSymbol())
+                        .name(dto.getCompanyInfo().getName())
+                        .industry(dto.getCompanyInfo().getIndustry())
+                        .logo(dto.getCompanyInfo().getLogo())
+                        .sharesOutstanding(dto.getCompanyInfo().getSharesOutstanding())
+                        .marketCap(dto.getCompanyInfo().getMarketCap())
+                        .latestPrice(dto.getStockPrice().getPrice())
+                        .dayHigh(dto.getStockPrice().getDayHigh())
+                        .dayLow(dto.getStockPrice().getDayLow())
+                        .dayOpen(dto.getStockPrice().getDayOpen())
+                        .lastUpdated(dto.getStockPrice().getDatetime())
+                        .build();
+
+                stockProfileRepository.save(entity);
+                updated.add(entity);
+                Thread.sleep(3000);
+
+            } catch (Exception e) {
+                log.warn("❌ Failed to refresh {}: {}", symbol, e.getMessage());
+            }
+        }
+
+        return updated;
     }
 }

@@ -12,8 +12,4 @@ public interface StockApiService {
     FinnhubCompanyDTO getCompanyInfo(String symbol);
 
     CompanyFullDTO getFullCompany(String symbol);
-
-    List<CompanyFullDTO> getTopCompanies(int limit);
-
-    List<CompanyFullDTO> getAllStocks();
 }
