@@ -1,42 +1,71 @@
 import pandas as pd
 import yfinance as yf
-import time
+import time, random, os
+from datetime import datetime
 from sqlalchemy import create_engine, text
 
-def fetch_yahoo_ohlc(symbol: str):
-    print(f"📊 Fetching {symbol} ...")
-    try:
-        # ⚙️ 設定 auto_adjust=False，保留原始價
-        data = yf.download(symbol, period="1y", interval="1d", progress=False, auto_adjust=False)
-        if data is None or data.empty:
-            print(f"⚠️ No data for {symbol}")
-            return pd.DataFrame()
+# ---------------------------------------
+# ⚙️ PostgreSQL 連線設定
+# ---------------------------------------
+DB_URL = "postgresql+psycopg2://postgres:1234@localhost/stockdb"
+engine = create_engine(DB_URL, pool_pre_ping=True)
 
-        # ✅ 防止 MultiIndex 出錯
-        data = data.copy()
-        data.reset_index(inplace=True)
-        data.columns = [c if not isinstance(c, tuple) else c[0] for c in data.columns]
+MAX_RETRY = 3
+FAILED_FILE = "failed_symbols.log"
 
-        # ✅ 確認必要欄位存在
-        required_cols = {"Open", "High", "Low", "Close", "Volume", "Date"}
-        if not required_cols.issubset(set(data.columns)):
-            print(f"❌ Error fetching {symbol}: {list(required_cols - set(data.columns))}")
-            return pd.DataFrame()
+# ---------------------------------------
+# 🔧 Symbol 修正 (BRK.A → BRK-A)
+# ---------------------------------------
+def normalize_symbol(symbol: str) -> str:
+    """轉成 Yahoo Finance 可接受格式"""
+    if "." in symbol and not symbol.endswith((".HK", ".L", ".TO")):
+        return symbol.replace(".", "-")
+    return symbol
 
-        # ✅ 強制轉型
-        data["Date"] = pd.to_datetime(data["Date"]).dt.date
-        data = data[["Date", "Open", "High", "Low", "Close", "Volume"]]
-        return data
+# ---------------------------------------
+# 📈 抓取單隻股票 (含 retry)
+# ---------------------------------------
+def fetch_yahoo_ohlc(symbol: str, period="5d"):
+    for attempt in range(1, MAX_RETRY + 1):
+        fixed_symbol = normalize_symbol(symbol)
+        print(f"📊 Fetching {symbol} (Yahoo: {fixed_symbol}) [try {attempt}/{MAX_RETRY}] ...")
+        try:
+            data = yf.download(fixed_symbol, period=period, interval="1d",
+                               progress=False, auto_adjust=False)
+            if data is None or data.empty:
+                raise ValueError("No data returned")
 
-    except Exception as e:
-        print(f"❌ Error fetching {symbol}: {e}")
-        return pd.DataFrame()
+            data.reset_index(inplace=True)
+            data.columns = [c if not isinstance(c, tuple) else c[0] for c in data.columns]
 
-def main():
-    engine = create_engine("postgresql+psycopg2://postgres:1234@localhost/stockdb")
+            required_cols = {"Open", "High", "Low", "Close", "Volume", "Date"}
+            if not required_cols.issubset(data.columns):
+                raise ValueError(f"Missing columns: {required_cols - set(data.columns)}")
 
-    with engine.connect() as conn:
-        # 🧱 確保表存在
+            data["Date"] = pd.to_datetime(data["Date"]).dt.date
+            data = data[["Date", "Open", "High", "Low", "Close", "Volume"]]
+            return data
+
+        except Exception as e:
+            print(f"⚠️ Error fetching {symbol}: {e}")
+            time.sleep(1.5 * attempt + random.random())
+
+    print(f"❌ {symbol} failed after {MAX_RETRY} retries.")
+    return pd.DataFrame()
+
+# ---------------------------------------
+# 🧩 主流程
+# ---------------------------------------
+def main(full_mode=False):
+    """
+    full_mode=True  → 全量抓 1 年資料
+    full_mode=False → 每日自動補近 5 日
+    """
+    period = "1y" if full_mode else "5d"
+    print(f"\n🚀 開始抓取 Yahoo Finance ({period}) ...\n")
+
+    # 建立表結構（如未存在）
+    with engine.begin() as conn:
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS stock_ohlc (
                 id SERIAL PRIMARY KEY,
@@ -46,45 +75,74 @@ def main():
                 high DOUBLE PRECISION,
                 low DOUBLE PRECISION,
                 close DOUBLE PRECISION,
-                volume BIGINT
+                volume BIGINT,
+                CONSTRAINT unique_symbol_date UNIQUE (symbol, date)
             );
         """))
-        conn.commit()
 
-        # 🔹 取出 symbol
-        symbols = pd.read_sql("SELECT symbol FROM stock_symbols;", conn)["symbol"].tolist()
-        print(f"📈 Total symbols: {len(symbols)}")
+        # 如有 failed log，優先續跑
+        if os.path.exists(FAILED_FILE):
+            failed_list = [s.strip() for s in open(FAILED_FILE) if s.strip()]
+            print(f"🔁 續跑上次失敗清單：{len(failed_list)} 隻股票。")
+            symbols = failed_list
+        else:
+            symbols_df = pd.read_sql("SELECT symbol FROM stock_symbols;", conn)
+            symbols = symbols_df["symbol"].tolist()
+            print(f"📈 Total symbols: {len(symbols)}")
 
+    failed_symbols = []
+
+    with engine.begin() as conn:
         for sym in symbols:
-            df = fetch_yahoo_ohlc(sym)
+            df = fetch_yahoo_ohlc(sym, period=period)
             if df.empty:
+                failed_symbols.append(sym)
                 continue
 
-            inserted_rows = 0
-            for _, row in df.iterrows():
-                try:
+            try:
+                # 刪除近 5 天舊資料（避免重複）
+                if not full_mode:
                     conn.execute(text("""
-                        INSERT INTO stock_ohlc (symbol, date, open, high, low, close, volume)
-                        VALUES (:symbol, :date, :open, :high, :low, :close, :volume)
-                        ON CONFLICT DO NOTHING;
-                    """), {
-                        "symbol": sym,
-                        "date": row["Date"],
-                        "open": float(row["Open"]),
-                        "high": float(row["High"]),
-                        "low": float(row["Low"]),
-                        "close": float(row["Close"]),
-                        "volume": int(row["Volume"]) if not pd.isna(row["Volume"]) else None
-                    })
-                    inserted_rows += 1
-                except Exception as e:
-                    print(f"⚠️ Insert failed for {sym}: {e}")
+                        DELETE FROM stock_ohlc
+                        WHERE symbol = :symbol
+                        AND date >= CURRENT_DATE - INTERVAL '5 days';
+                    """), {"symbol": sym})
 
-            conn.commit()
-            print(f"✅ {sym} done ({inserted_rows} rows)")
-            time.sleep(3)
+                df["symbol"] = sym
+                df.rename(columns={
+                    "Date": "date",
+                    "Open": "open",
+                    "High": "high",
+                    "Low": "low",
+                    "Close": "close",
+                    "Volume": "volume"
+                }, inplace=True)
 
-    print("✅ All done!")
+                df.to_sql("stock_ohlc", conn, if_exists="append", index=False, method="multi")
+                print(f"✅ {sym} done ({len(df)} rows)")
 
+            except Exception as e:
+                print(f"⚠️ Insert failed for {sym}: {e}")
+                failed_symbols.append(sym)
+
+            time.sleep(2.5)  # Yahoo API 限速保護
+
+    # -----------------------------------
+    # 💾 儲存失敗清單
+    # -----------------------------------
+    if failed_symbols:
+        with open(FAILED_FILE, "w") as f:
+            f.write("\n".join(failed_symbols))
+        print(f"\n⚠️ 共 {len(failed_symbols)} 隻失敗，已記錄到 {FAILED_FILE}。")
+    else:
+        if os.path.exists(FAILED_FILE):
+            os.remove(FAILED_FILE)
+        print("\n🎉 全部成功！已清除 failed log。")
+
+    print(f"✅ 完成 {period} 抓取！PostgreSQL 已更新。")
+
+# ---------------------------------------
 if __name__ == "__main__":
-    main()
+    # full_mode=True → 初次全量抓一年
+    # full_mode=False → 每日排程自動補近5日
+    main(full_mode=False)

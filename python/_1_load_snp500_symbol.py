@@ -27,7 +27,7 @@ def load_symbols():
         host="localhost",
         database="stockdb",
         user="postgres",
-        password="1234"
+        password="admin1234"
     )
     cur = conn.cursor()
 
